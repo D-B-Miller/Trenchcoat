@@ -7,28 +7,15 @@ Possible conclusions include
   - Particles bouncing off the surface due to an obtuse collision angle
   - Particles being too slow to adhere
 
-## Requirements
+## External requirements
 
-This is more of a general list of requirements but it is recommended to look at the individual folders for specific areas
-
-### Hard Requirements
-
-- [numpy](https://numpy.org/)
-- [scipy](https://scipy.org/)
-- [matplotlib](https://matplotlib.org/)
-- [cv2](https://pypi.org/project/opencv-python/)
-- [Jupyter Notebook](https://jupyter.org/)
-- [h5py](https://www.h5py.org/)
-- [ipympl](https://matplotlib.org/ipympl/)
-    + For interacting with matplotlib in Jupyter notebooks
 - [Exiftool](https://exiftool.org/)
-    + Required for reading FLIR files
+    + Required for reading metadata FLIR files
+    + Needed for PyExifTool
     + Needs to be downloaded and placed on PATH (for Windows)
     + The path to EXE can also be provided in Python wrapper
-- [PyExiftool](https://pypi.org/project/PyExifTool/)
-    + Python wrapper around exiftool for calling and processing the returned values
 
-### Recommendations
+## Recommendations
 
 - [VSCode](https://code.visualstudio.com/) or other IDE (makes it easier to interact with Jupyter notebooks)
     + Easier to install and set up Jupyter notebooks
@@ -41,4 +28,11 @@ Multiple sensor modalities are investigated to sensorize the process and build a
   + Program files for connecting to sensors, processing the data and generating results
   + [trenchcoat](src/trenchcoat)
       * Python API for processing the thermal data produced by a FLIR T540 and the Acoustic Emission Sensors
+  + [examples](examples)
+      * Examples of using the API
         
+## Link to Data
+
+## Link to Papers
+
+## Examples
