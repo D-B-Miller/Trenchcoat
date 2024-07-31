@@ -1,0 +1,10 @@
+opencv-python
+pillow
+numpy
+nptdms
+pandas
+PyExifTool
+matplotlib
+scipy
+glob
+seaborn
