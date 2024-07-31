@@ -1,7 +1,6 @@
 from nptdms import TdmsFile
 from nptdms.reader import TdmsReader
 from nptdms.common import toc_properties
-
 import seaborn as sns
 import pandas as pd
 import numpy as np
