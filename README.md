@@ -37,8 +37,8 @@ This is more of a general list of requirements but it is recommended to look at 
 
 Multiple sensor modalities are investigated to sensorize the process and build a digital twin. This project is organised around the different modalities due to different data requirements.
 
-- [scripts](scripts)
+- [scripts](src)
   + Program files for connecting to sensors, processing the data and generating results
-  + [trenchcoat](scripts/trenchcoat)
+  + [trenchcoat](src/trenchcoat)
       * Python API for processing the thermal data produced by a FLIR T540 and the Acoustic Emission Sensors
         
