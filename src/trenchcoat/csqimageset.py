@@ -1,4 +1,3 @@
-#import pillow_jpls
 from PIL import UnidentifiedImageError
 from PIL import Image
 import numpy as np
