@@ -1287,7 +1287,6 @@ def plotAllStripeEdges(path,dist=int(50e3),**kwargs):
     import matplotlib.patches as mpatches
     from matplotlib.pyplot import cm
     fname = os.path.splitext(os.path.basename(path))[0]
-    add_label = ""
     # check if supported
     periods = list(filter(lambda x,fname=fname : fname in x,PERIODS))
     if periods:
@@ -1378,7 +1377,6 @@ def calcStripeAreas(path,dist=int(50e3),**kwargs):
     from matplotlib.pyplot import cm
     sns.set_theme("paper")
     fname = os.path.splitext(os.path.basename(path))[0]
-    add_label = ""
     # check if supported
     periods = list(filter(lambda x,fname=fname : fname in x,PERIODS))
     if periods:
@@ -2174,61 +2172,3 @@ def convert_to_parquet(path: str, opath: str = None):
     df.rename(columns=lambda x : x.split("'/'")[-1][:-1], inplace=True)
     # convert and save
     df.to_parquet(opath)
-
-
-if __name__ == "__main__":
-    import matplotlib.colors as colors
-    from scipy.signal import periodogram
-    plt.rcParams['agg.path.chunksize'] = 10000
-    #plotStripes("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms")
-    #drawEdgeAroundStripe("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",stripe_ref=0)
-
-    ## filterStripes
-##    filterStripes("ae/sheff_lsbu_stripe_coating_1.tdms",300e3,'highpass')
-##    filterStripes("ae/sheff_lsbu_stripe_coating_2.tdms",300e3,'highpass')
-##    filterStripes("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",300e3,'highpass')
-##    
-##    stackFilterStripes("ae/sheff_lsbu_stripe_coating_1.tdms",300e3,'highpass')
-##    stackFilterStripes("ae/sheff_lsbu_stripe_coating_2.tdms",300e3,'highpass')
-##    stackFilterStripes("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",300e3,'highpass')
-
-    ## periodogramStripes
-##    welchStripesOverlap("ae/sheff_lsbu_stripe_coating_1.tdms",freq_clip=[0,50e3],use_fr=True)
-##    welchStripesOverlap("ae/sheff_lsbu_stripe_coating_2.tdms",freq_clip=[0,50e3],use_fr=True)
-##    welchStripesOverlap("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",freq_clip=[0,50e3],use_fr=False)
-
-##    welchStripesOverlap("ae/sheff_lsbu_stripe_coating_1.tdms")
-##    welchStripesOverlap("ae/sheff_lsbu_stripe_coating_2.tdms")
-##    welchStripesOverlap("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms")
-##    filterStripesProportion("ae/sheff_lsbu_stripe_coating_2.tdms")
-
-##    filterStripes("ae/sheff_lsbu_stripe_coating_1.tdms",50e3,mode="lowpass")
-##    filterStripes("ae/sheff_lsbu_stripe_coating_2.tdms",50e3,mode="lowpass")
-##    filterStripes("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",50e3,mode="lowpass")
-
-    ## stripeSpectrogram
-    stripeSpectrogram("ae/sheff_lsbu_stripe_coating_1.tdms")
-    stripeSpectrogram("ae/sheff_lsbu_stripe_coating_2.tdms")
-    stripeSpectrogram("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms")
-
-##    plotStripesLimits("ae/sheff_lsbu_stripe_coating_1.tdms",cutoff_freq=[30e3,300e3],mode=["lowpass","highpass"],plot_mode="both")
-##    plotStripesLimits("ae/sheff_lsbu_stripe_coating_2.tdms",cutoff_freq=[30e3,300e3],mode=["lowpass","highpass"],plot_mode="both")
-##    plotStripesLimits("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",cutoff_freq=[30e3,300e3],mode=["lowpass","highpass"],plot_mode="both")
-##
-##    f = calcStripeAreas("ae/sheff_lsbu_stripe_coating_1.tdms")
-##    f = calcStripeAreas("ae/sheff_lsbu_stripe_coating_2.tdms")
-##    f = calcStripeAreas("ae/sheff_lsbu_stripe_coating_3_pulsing.tdms")
-##    stackFilterEdgesBP3D("ae/sheff_lsbu_stripe_coating_1.tdms",[[f0,f1] for f0,f1 in zip(np.arange(0.1,1e6/2,50e3),np.arange(0.1,1e6/2,50e3)[1:])])
-    #f.savefig("ae/sheff_lsbu_stripe_coating_2-signal-limits.png")
-    #plt.close(f)
-##    for stripe in STRIPE_PERIOD['sheff_lsbu_stripe_coating_1'].keys():
-##        f = drawEdgeAroundStripe("ae/sheff_lsbu_stripe_coating_1.tdms",stripe_ref=stripe,mode="overlay")
-##        f.savefig(f"ae/sheff_lsbu_stripe_coating_1-edge-trace-{stripe}-overlay.png")
-##        plt.close(f)
-    
-##    f0,f1 = replotAE("ae/sheff_lsbu_stripe_coating_2.tdms",clip=False,ds=1)
-##    f0.savefig("sheff_lsbu_stripe_coating_2-Input 0-time.png")
-##    f1.savefig("sheff_lsbu_stripe_coating_2-Input 1-time.png")
-##    plt.close('all')
-        
-        

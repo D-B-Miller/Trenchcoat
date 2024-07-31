@@ -61,5 +61,5 @@ if __name__ == "__main__":
         # delete extracted CSV
         # this can be commented out, but given the size of the CSV files
         # can become difficult to manage
-        if not (csv is None):
+        if csv is not None:
             os.remove(csv)

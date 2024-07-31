@@ -64,7 +64,7 @@ if __name__ == "__main__":
                 print(f"Parsed data. Got dataframe of shape {data.shape}\nHas cols {data.columns}\ndtypes {set(list(data.dtypes))}")
                 # reshape to correct size
                 if len(data.values.shape)==2:
-                    printv(f"Reshaping the 2D data to 3D")
+                    printv("Reshaping the 2D data to 3D")
                     data = data.values.reshape((-1,348,464))
                 else:
                     data = data.values
@@ -78,5 +78,5 @@ if __name__ == "__main__":
         # delete extracted CSV
         # this can be commented out, but given the size of the CSV files
         # can become difficult to manage
-        if not (csv is None):
+        if csv is not None:
             os.remove(csv)

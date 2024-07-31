@@ -1188,7 +1188,7 @@ def videoMaskTemperature(path,mask,opath,cmap=cv2.COLORMAP_HOT):
     # load mask
     if isinstance(mask,str):
         mask_img = cv2.imread(mask,cv2.IMREAD_GRAYSCALE)
-    else:
+    elif isinstance(mask,np.ndarray):
         mask_img = mask.copy()
 
     fourcc = cv2.VideoWriter_fourcc(*'mjpg')
@@ -1204,6 +1204,8 @@ def videoMaskTemperature(path,mask,opath,cmap=cv2.COLORMAP_HOT):
         frame = data[ni,:,:]
         frame[mask != 255] = 0
         frame_norm = (255*((frame-frame.min())/abs(frame.max()-frame.min()))).astype("uint8")
+        # apply mask
+        frame_norm = cv2.bitwise_and(frame_norm, frame_norm, mask=mask_img)
         if cmap == 'gray':
             out.write(frame_norm)
         else:
