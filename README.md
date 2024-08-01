@@ -14,11 +14,29 @@ Possible conclusions include
     + Needed for [PyExifTool](https://pypi.org/project/PyExifTool/)
     + Needs to be downloaded and placed on PATH (for Windows)
     + The path to EXE can also be provided in Python wrapper
+ 
+## Local Installation
+
+It can be installed locally by just directing pip towards the folder
+
+```bash
+python -m pip install .
+```
+
+## Build + Install
+The following commands build the scripts into a WHL, installs it and quickly tests that it can be imported.
+
+```bash
+python -m pip install setuptools build
+python -m build
+python -m pip install dist/Trenchcoat-1.0.0-py3-none-any.whl
+python -c "import trenchcoat"
+```
 
 ## Recommendations
 
-- [VSCode](https://code.visualstudio.com/) or other IDE (makes it easier to interact with Jupyter notebooks)
-    + Easier to install and set up Jupyter notebooks
+- Use [VSCode](https://code.visualstudio.com/) or similar to make it easier to interact with Jupyter notebooks
+- Setup your environment using [venv](https://docs.python.org/3/library/venv.html) or similar to make it easier to test and manage.
   
 ## Link to Data
 The CSQ and NPZ files from the paper can be found here
