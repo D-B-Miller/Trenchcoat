@@ -6,6 +6,33 @@ import numpy as np
 import argparse
 from multiprocessing.dummy import Pool
 
+"""
+    Repack CSV to NPZ (MT version)
+
+    This program is for converting a zip-compressed FLIR CSV file to NPZ or TDMS.
+
+    Make sure you have a decent amount of memory and space to support loading the files.
+
+    When temperature is exported from FLIR Thermal Studio, it exports the data as a CSV file with header data at the top followed by the temperature data.
+    Each frame is just stacked one after the other with no delimiter. These files are ridiculously big. To make it easier to store and a bit more Python friendly, 
+    the file is unpacked and converted to a NPZ file. NPZ files are compressed and a bit easier to deal with in numpy.
+
+    The program assumes that the CSV files are zip compressed since that's how I was storing them.
+
+    This program does the following:
+        - Unpacks the CSV file
+        - Loads each frame into a list
+        - Convert to a numpy array
+        - Write to NPZ
+
+    It is generally recommended to skip TDMS since they can be a bit messier to deal with. TDMS support was added on request.
+
+    Minimal Example:
+        python -m repackcsvp.py --i csv_in --o npz_out --skiptdms
+"""
+
+
+
 def imageCSVSave(csv,path_output):
     # convert to compressed CSV
     data = dp.pandasReadImageCSV(csv)

@@ -5,15 +5,16 @@ import os
 import warnings
 import multiprocessing as mp
 
-def getParamsHeader(path):
-    '''
+
+def getParamsHeader(path: str) -> dict:
+    """
         Extract the header from the exported FLIR CSV file
 
         Input:
             path : Path to target CSV
 
         Returns dictionary of values
-    '''
+    """
     params = {}
     with open(path,'r') as source:
         # first line is the source file path
@@ -31,8 +32,9 @@ def getParamsHeader(path):
             line = source.readline()[1:].strip()
     return params
 
-def printTDMSInfo(path,to_log=True):
-    '''
+
+def printTDMSInfo(path: str,to_log:bool=True) -> str | None:
+    """
         Print the structure of the TDMS file using the tdmsinfo command line tool installed with nptdms
 
         Inputs:
@@ -40,7 +42,7 @@ def printTDMSInfo(path,to_log=True):
             to_log : Write the returned string to a text file. If True, then the file is based on the input filename. If a string, then that is used as the output filename.
 
         Returns None if to_log if a string or True else returns the string created by the tdmsinfo command
-    '''
+    """
     # get filename
     fname = os.path.splitext(os.path.basename(path))[0]
     import subprocess
@@ -55,8 +57,9 @@ def printTDMSInfo(path,to_log=True):
         elif isinstance(to_log,bool):
             open(f"{fname}.txt",'w').write(td_str)
 
-def parseImageCSV(path,params=True,img_shape=(464,348),**kwargs):
-    '''
+
+def parseImageCSV(path: str,params:bool=True,img_shape:tuple=(464,348),**kwargs) -> np.ndarray:
+    """
         Processes the exported CSV file from FLIR Report Studio and returns a numpy array.
 
         Inputs:
@@ -70,7 +73,7 @@ def parseImageCSV(path,params=True,img_shape=(464,348),**kwargs):
 
         Returns a numpy array of type float64
 
-    '''
+    """
     # if params is boolean and False
     if isinstance(params,bool) and (not params):
         # set number of rows to skip to 2
@@ -105,6 +108,7 @@ def parseImageCSV(path,params=True,img_shape=(464,348),**kwargs):
     # skip first column
     data = data[:,1:]
     return np.dstack(np.vsplit(data,data.shape[0]//img_shape[0]))
+
 
 def altImageCSVload(path: str) -> np.ndarray:
     frame_list = []
@@ -141,8 +145,9 @@ def altImageCSVload(path: str) -> np.ndarray:
     arr = np.dstack(frame_list)
     return arr
 
-def pandasReadImageCSV(path: str,has_head: bool=True,img_shape: tuple=(464,348),add_fidx: bool=False,use_chunks: bool=True,**kwargs):
-    '''
+
+def pandasReadImageCSV(path: str,has_head: bool=True,img_shape: tuple=(464,348),add_fidx: bool=False,use_chunks: bool=True,**kwargs) -> pd.DataFrame:
+    """
         Process the exported CSV file from FLIR Report Studio and returns a pandas dataframe
 
         Designed for use with larger CSVs are Pandas processes them faster
@@ -155,8 +160,9 @@ def pandasReadImageCSV(path: str,has_head: bool=True,img_shape: tuple=(464,348),
             jump_to : Jump to a specific number of seconds or specific frame to create the CSV file from. If the user gives a float, then it's taken as number of seconds. If an integer,
                         it's taken as the specific frame to start from..
             framerate : Framerate of the data. Default 30 Hz.
+
         Returns pandas dataframe where each column is a row of the image
-    '''
+    """
     # check number of values defining image shape
     if len(img_shape)!=2:
         raise ValueError(f"Image shape must be 2 elements len(img_shape)=={len(img_shape)}")
@@ -211,8 +217,9 @@ def pandasReadImageCSV(path: str,has_head: bool=True,img_shape: tuple=(464,348),
         data.insert(0,"NFRAME",np.arange(0,data.shape[0]) // img_shape[1],True)
         return data
 
-def convertCSVToTDMS(ipath,opath=None,**kwargs):
-    '''
+
+def convertCSVToTDMS(ipath: str,opath:str|None = None,**kwargs):
+    """
         Convert the target CSV file to a TDMS file
 
         Opens the CSV file as a chunked data set, reads the chunks in and writes them to a TDMS file. This approach is used as the target
@@ -227,7 +234,7 @@ def convertCSVToTDMS(ipath,opath=None,**kwargs):
             opath : Output filepath. If None, it is based off the input filename
             img_shape : Shape of the image data (ww,hh)
             has_head : Flag to indicate if the CSV file has a parameter header. If True, then the metadata stored is added to the TDMS file in the root
-    '''
+    """
     # get image shape
     img_shape = kwargs.get('img_shape',(464,348))
     # get flag indicating if there are parameters
@@ -258,8 +265,9 @@ def convertCSVToTDMS(ipath,opath=None,**kwargs):
         for chunk in data:
             tdms_writer.write_segment([root,ChannelObject("flir","temp",chunk.values.flatten())])
 
-def convertCSVToHDF5(ipath,opath=None,**kwargs):
-    '''
+
+def convertCSVToHDF5(ipath: str,opath: str|None = None,**kwargs):
+    """
         Convert the target CSV file to a compressed HDF5 file
 
         The advantages of this over TDMS is it retains the 3D shape and compressed the data, but has a performance penalty.
@@ -274,7 +282,7 @@ def convertCSVToHDF5(ipath,opath=None,**kwargs):
             img_shape : 2-element list or tuple representing the width and height of the image
             cmethod : Compression method. See h5py documentation for supported methods. Default gzip
             clevel : Level the data is compressed to. Higher means more compressed. Max level and effect depends on compression method. See h5py docs. Default 9
-    '''
+    """
     import h5py
     # get image shape
     img_shape = kwargs.get('img_shape',(464,348))
@@ -308,13 +316,15 @@ def convertCSVToHDF5(ipath,opath=None,**kwargs):
             data_set.resize((dest['temp'].shape[-1] + 1),axis=2)
             data_set[:,:,-1] = chunk.values
 
-def getCalibrationParams(params_dict):
-    ''' Filter the CSQ metadta to just the calibration parameters '''
+
+def getCalibrationParams(params_dict: dict) -> dict:
+    """ Filter the CSQ metadta to just the calibration parameters """
     return dict(filter(lambda x : x[0] in ["FLIR:PlanckR2","FLIR:PlanckR1","FLIR:PlanckO","FLIR:PlanckB","FLIR:PlanckF","FLIR:ReflectedApparentTemperature"],params_dict.items()))
 
+
 # function to convert temperature of object to raw value object
-def Tobj2Robj(T,R2,R1,O,B,F):  # noqa: E741
-    ''' Convert object temperature to raw object value '''
+def Tobj2Robj(T:np.ndarray|float,R2:float,R1:float,O:float,B:float,F:float) -> np.ndarray | float:   # noqa: E741
+    """ Convert object temperature to raw object value """
     # reverse calculation
     # from https://exiftool.org/forum/index.php?topic=4898.msg23972#msg23972
     exp_BT = np.exp(B/T)
@@ -327,30 +337,30 @@ def Tobj2Robj(T,R2,R1,O,B,F):  # noqa: E741
 # formula adapted from
 # Thermimage R package https://rdrr.io/cran/Thermimage/man/raw2temp.html
 def Robj2Tobj(Robj,R2,R1,B,F,O):  # noqa: E741
-    ''' Convert raw object values to object temperature Kelvin '''
+    """ Convert raw object values to object temperature Kelvin """
     return B/np.log(R1/(R2*(Robj+O))+F)
 
 # function to convert reflected temperature to raw value of reflectance
 def Tref2Rref(Tref,R2,R1,B,F,O):  # noqa: E741
-    ''' Convert reflected temperature in Kelvin to a raw value '''
+    """ Convert reflected temperature in Kelvin to a raw value """
     return R1/(R2*(np.exp(B/Tref)-F))-O
 
 # function to convert raw reflected value to reflected temperature
 def Rref2Tref(Rref,R2,R1,B,F,O):  # noqa: E741
-    ''' Convert raw reflected value to reflected temperature in Kelvin'''
+    """ Convert raw reflected value to reflected temperature in Kelvin"""
     return B/(np.log((R1+R2*((O*F)+(F*Rref)-O))/(Rref*R2)))
 
 # function to convert raw reflectance to raw object
 def Raw2Robj(S,E,Rref):
-    ''' Convert Raw FLIR value to Raw value for object '''
+    """ Convert Raw FLIR value to Raw value for object """
     return (S-(1-E)*Rref)/E
 
 def Robj2Raw(Robj,E,Rref):
-    ''' Convert raw value for object to raw FLIR value '''
+    """ Convert raw value for object to raw FLIR value """
     return (Robj*E)+(1-E)*Rref
 
 def changeE(temp,Eold,Enew,R2,R1,O,B,F,Tref):  # noqa: E741
-    '''
+    """
         Re-calculate the temperature frame under a new emissivity value
 
         Large temperature recordings tend to eat up a lot of memory and take a while.
@@ -360,7 +370,7 @@ def changeE(temp,Eold,Enew,R2,R1,O,B,F,Tref):  # noqa: E741
 
         Inputs:
             temp : 2D temperature array
-    '''
+    """
     # convert reflected temperature to raw reflected value
     Rref = Tref2Rref(Tref,R2,R2,B,F,O)
     # convert temperature to raw object value
@@ -373,7 +383,7 @@ def changeE(temp,Eold,Enew,R2,R1,O,B,F,Tref):  # noqa: E741
     return Robj2Tobj(Robj,R2,R1,B,F,O)
 
 def changeEmissivity(temp,Eold,Enew,frame_first=False,**params_dict) -> np.ndarray:
-    '''
+    """
         Batch convert the emissivity of the given temperature array.
 
         The temperature values go through multiple stages of conversion to get the raw values and then
@@ -391,7 +401,7 @@ def changeEmissivity(temp,Eold,Enew,frame_first=False,**params_dict) -> np.ndarr
             Enew : New emissivity value to convert to
             frame_first : Flag to indicate if the temperature array is organised frames first or not. If True, then it's organised (frames, width, height). Default False.
             **params_dict : Dictionary of calibration parameters. Can be the loaded CSQ metadata or organised by parameter names.
-    '''
+    """
     # extract calibration parameters from the dictionary
     try:
         R2 = params_dict["FLIR:PlanckR2"]
@@ -448,7 +458,7 @@ def changeEmissivity(temp,Eold,Enew,frame_first=False,**params_dict) -> np.ndarr
         return temp_new
 
 def batchConvert(raw,fn,frame_first=False,**params_dict):
-    '''
+    """
         Batch convert data using multiprocessing pool
 
         Currently the number of processes is set to 10.
@@ -460,7 +470,7 @@ def batchConvert(raw,fn,frame_first=False,**params_dict):
             Enew : New emissivity value to convert to
             frame_first : Flag to indicate if the temperature array is organised frames first or not. If True, then it's organised (frames, width, height). Default False.
             **params_dict : Dictionary of calibration parameters. Can be the loaded CSQ metadata or organised by parameter names.
-    '''
+    """
     # extract calibration parameters from the dictionary
     try:
         R2 = params_dict["FLIR:PlanckR2"]
@@ -518,7 +528,7 @@ def batchConvert(raw,fn,frame_first=False,**params_dict):
     return raw
         
 def temp2raw(temp,frame_first=True,**params_dict):
-    '''
+    """
         Convert FLIR temperature from to raw data values
 
         Requires the calibration parameters from the file. They can be extracted using the flirmagic.getMetadata function
@@ -531,7 +541,7 @@ def temp2raw(temp,frame_first=True,**params_dict):
         Inputs:
             temp : N-D temperature array.
             **params_dict : Dictionary of camera parameters.
-    '''
+    """
     # extract calibration parameters from the dictionary
     try:
         R2 = params_dict["FLIR:PlanckR2"]
@@ -583,7 +593,7 @@ def temp2raw(temp,frame_first=True,**params_dict):
         return raw
 
 def raw2temp(raw,E,frame_first=True,**params_dict):
-    '''
+    """
         Convert the raw values to temperature values in degrees C
 
         The required parameters must be accessible under the FLIR Tags e.g. FLIR:PlanckR2 or by their parameter name R2
@@ -594,7 +604,7 @@ def raw2temp(raw,E,frame_first=True,**params_dict):
             raw : Numpy array of raw values
             E : Target emissivity value
             **params_dict : Dictionary of camera paramters
-    '''
+    """
     # extract calibration parameters from the dictionary
     try:
         R2 = params_dict["FLIR:PlanckR2"]
@@ -644,7 +654,7 @@ def raw2temp(raw,E,frame_first=True,**params_dict):
         return temp
 
 def loadTDMSData(path,inc_time=True):
-    '''
+    """
         Load the data from non-empty channels in a TDMS file
 
         Iterates over groups and channels in the target TDMS file and adds the non-empty ones to
@@ -658,7 +668,7 @@ def loadTDMSData(path,inc_time=True):
             inc_time : Flag to include
 
         Returns a dictionary of found channel data
-    '''
+    """
     data = {}
     with TdmsFile(path) as of:
         for gg in of.groups():
@@ -672,13 +682,13 @@ def loadTDMSData(path,inc_time=True):
 
 class R_pca:
     def __init__(self, D, mu=None, lmbda=None):
-        '''
+        """
             Constructor for RPCA
 
             Inputs:
                 D : Matrix to perform RPCA on.
                 mu,lmbda : Used in fitting
-        '''
+        """
         self.D = D
         #self.n, self.d = self.D.shape
         # initialie matrix for fitting
@@ -714,7 +724,7 @@ class R_pca:
         return np.dot(U, np.dot(np.diag(self.shrink(S, tau)), V))
 
     def fit(self, tol=None, max_iter=1000, iter_print=None):
-        '''
+        """
             Fit RPCA to the data given earlier
 
             Inputs:
@@ -722,7 +732,7 @@ class R_pca:
                 max_iter : Max number of iterations to try. Default 1000
                 iter_print : At what multiple of iterations a print statement is made. If None,
                             then nothing is printed. Default None.
-        '''
+        """
         # current iteration
         it = 0
         # error to fitting
@@ -749,7 +759,15 @@ class R_pca:
         self._fitted = True
         return Lk, Sk
 
-def parseSeqCSV(fn):
+def parseSeqCSV(fn: np.array) -> np.ndarray:
+    """ 
+        Parse exported FLIR CSV files and stack them into a 2D numpy array
+
+        Input:
+            fn : Input file path
+
+        Returns numpy array of stacked rows
+    """
     # open file
     with open(fn,'r') as of:
         # read until frame counter
@@ -762,14 +780,28 @@ def parseSeqCSV(fn):
     print("finished!")
     return np.row_stack(pts)
 
+
 class StackSeqCSV:
-    def __init__(self,path):
+    """ 
+        OOP approach for reading several exported FLIR CSV files and stacking them into a single file
+
+        Can prob write it as a single function. Just wanted to stage it as methods
+
+        Input:
+            path : Folder where the CSV files are located
+
+        Examples:
+            stack_csv = StackSeqCSV(f"csv_files/*.csv")
+            stack_csv.stack("stacked_csv.csv")
+    """
+    def __init__(self,path: str):
         # get and sort seq frames into a list
         self._paths = sorted(glob(path),key=lambda x : int(os.path.splitext(os.path.basename(x))[0].split('_')[-1].split(' ')[0]))
         self._nf = len(self._paths)
         self._skip = 0
         self._shape = ()
     
+    # est final size of the stacked CSV
     def estSize(self):
         self._skip=1
         with open(self._paths[0],'r') as of:
@@ -789,7 +821,7 @@ class StackSeqCSV:
         self._shape = (self._nf,i,len(self._cols))
         return self._shape
 
-    def stack(self,fout,convert=True,progress=True):
+    def stack(self,fout:str,convert:bool=True,progress:bool=True):
         # if user wants to convert the stack immediately afterwards
         # set the temp out file to temp.csv and assume fout is the output filename
         fout_csv = 'temp.csv' if convert else fout

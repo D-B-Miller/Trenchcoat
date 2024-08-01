@@ -11,16 +11,38 @@ JPG_LS_END = b'\xFF\xD9'
 
 FFF_HEADER = b'\x46\x46\x46\x00'
 
-
 def count_images(path: str) -> int:
+    """
+        Count the number of images in the CSQ/SEQ file by counting the number of blocks
+        between the FFF Header
+
+        Inputs:
+            path : File path
+        
+        Returns number of images
+    """
     data = open(path,'rb').read().split(FFF_HEADER)
+    # first section is always empty a can be ignored
     data.pop(0)
     return len([d.split(JPG_LS_HEADER)[1] for d in data])
 
 
-def export_invalid_images(path: str, export_path: str) -> int:
+def export_invalid_images(path: str, export_folder: str) -> int:
+    """
+        Export the invalid images found in the CSQ/SEQ file
+
+        Sometimes when decoding, invalid images are encountered. This function is for
+        exporting those images for inspecting and debuggging.
+
+        Inputs:
+            path: Input file path
+            export_folder: Folder to save the invalid frames to
+
+        Returns number of invalid frames
+    """
     data = open(path,'rb').read().split(FFF_HEADER)
     data.pop(0)
+    count = 0
     for i, d in enumerate(data):
         # split by JPG-LS header
         temp = JPG_LS_HEADER + (d.split(JPG_LS_HEADER)[1].split(JPG_LS_END)[0] + JPG_LS_END)
@@ -29,24 +51,59 @@ def export_invalid_images(path: str, export_path: str) -> int:
             img = Image.open(io.BytesIO(temp))
             np.array(img)
         except OSError:
-            open(os.path.join(export_path, f"invalid-{i:05}.bin"), 'wb').write(temp)
+            open(os.path.join(export_folder, f"invalid-{i:05}.bin"), 'wb').write(temp)
+            count += 1
+    return count
 
 
-def export_jpegls_images(path: str, export_path: str):
+def export_jpegls_images(path: str, export_folder: str) -> int:
+    """
+        Iterate over the SEQ/CSQ file, decode and export the valid images to the target folder
+
+        NOTE: Not all CSQ files use JPEG-LS encoding for the images. Other files have been found to use TIFF.
+        It is recommended to use a tool like exiftool to check the file header.
+
+        The files are written as 16-bit JPEG-LS images.
+
+        Inputs:
+            path : File path to CSQ/SEQ file
+            export_folder : Folder to export the images to
+
+        Returns number of exported valid images
+    """
     data = open(path,'rb').read().split(FFF_HEADER)
     data.pop(0)
+    count = 0
     for i, d in enumerate(data):
         # split by JPG-LS header
         temp = JPG_LS_HEADER + (d.split(JPG_LS_HEADER)[1].split(JPG_LS_END)[0] + JPG_LS_END)
         # convert to image
         try:
             Image.open(io.BytesIO(temp))
-            open(os.path.join(export_path, f"image-{i:06d}.jpegls"),'wb').write(temp)
+            open(os.path.join(export_folder, f"image-{i:06d}.jpegls"),'wb').write(temp)
+            count += 1
         except OSError:
             print(f"Image {i} is invalid!")
+    return count
 
 
 def export_csq_to_video(path: str, export_path: str):
+    """
+        Iterate over the SEQ/CSQ file, decode and export the valid images to a video file
+
+        NOTE: Not all CSQ files use JPEG-LS encoding for the images. Other files have been found to use TIFF.
+        It is recommended to use a tool like exiftool to check the file header.
+
+        The images are originally encoded as 16-bit JPEG-LS images. To write it to OpenCV videos, the image are
+        converted to an 8-bit grayscale image since I don't want to deal with finding one of the cases where 16-bit
+        encoding works
+
+        Inputs:
+            path : File path to CSQ/SEQ file
+            export_folder : Folder to export the images to
+
+        Returns number of exported valid images
+    """
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
     video = None
     # split by FFF0
@@ -156,7 +213,8 @@ class CSQImageSet:
     # get number of images loaded
     def __len__(self) -> int:
         return len(self.image_stack)
-    
+
+
     def num_images(self) -> int:
         return len(self.image_stack)
     
