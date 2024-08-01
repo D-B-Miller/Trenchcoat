@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
-from scipy.signal import stft,butter,sosfilt,sosfreqz
+from scipy.signal import stft,butter,sosfiltfilt,sosfreqz
 import os
 import struct
 import logging
@@ -218,37 +218,38 @@ class TdmsReaderExt(TdmsReader):
 
 class TdmsFileExt(TdmsFile):
     @staticmethod
-    def read(file, raw_timestamps=False, memmap_dir=None, clear_log=True):
-        """ Creates a new TdmsFile object and reads all data in the file
+    def read(file: str, raw_timestamps:bool=False, memmap_dir=None, clear_log: bool=True):
+        """ 
+            Creates a new TdmsFileExt object and reads all data in the file
 
-        :param file: Either the path to the tdms file to read
-            as a string or pathlib.Path, or an already opened file.
-        :param raw_timestamps: By default TDMS timestamps are read as numpy datetime64
-            but this loses some precision.
-            Setting this to true will read timestamps as a custom TdmsTimestamp type.
-        :param memmap_dir: The directory to store memory mapped data files in,
-            or None to read data into memory. The data files are created
-            as temporary files and are deleted when the channel data is no
-            longer used. tempfile.gettempdir() can be used to get the default
-            temporary file directory.
+            Input:
+                file: Path to the tdms file
+                raw_timestamps: Flag to read either TDMS timestamps as numpy datetime64 (False) or
+                                as custom TdmsTimestamp type (True).
+                memmap_dir: The directory to store memory mapped data files in,
+                    or None to read data into memory. The data files are created
+                    as temporary files and are deleted when the channel data is no
+                    longer used. tempfile.gettempdir() can be used to get the default
+                    temporary file directory.
+                clear_log : Flag to clear the log file created for debugging the metadata. Default True.
         """
         return TdmsFileExt(file, raw_timestamps=raw_timestamps, memmap_dir=memmap_dir, clear_log=clear_log)
 
     @staticmethod
-    def open(file, raw_timestamps=False, memmap_dir=None, clear_log=True):
-        """ Creates a new TdmsFile object and reads metadata, leaving the file open
-            to allow reading channel data
+    def open(file: str, raw_timestamps: bool=False, memmap_dir=None, clear_log: bool=True):
+        """ 
+            Creates a new TdmsFileExt object and reads the metadata and keeps the file open for reading the data later
 
-        :param file: Either the path to the tdms file to read
-            as a string or pathlib.Path, or an already opened file.
-        :param raw_timestamps: By default TDMS timestamps are read as numpy datetime64
-            but this loses some precision.
-            Setting this to true will read timestamps as a custom TdmsTimestamp type.
-        :param memmap_dir: The directory to store memory mapped data files in,
-            or None to read data into memory. The data files are created
-            as temporary files and are deleted when the channel data is no
-            longer used. tempfile.gettempdir() can be used to get the default
-            temporary file directory.
+            Input:
+                file: Path to the tdms file
+                raw_timestamps: Flag to read either TDMS timestamps as numpy datetime64 (False) or
+                                as custom TdmsTimestamp type (True).
+                memmap_dir: The directory to store memory mapped data files in,
+                    or None to read data into memory. The data files are created
+                    as temporary files and are deleted when the channel data is no
+                    longer used. tempfile.gettempdir() can be used to get the default
+                    temporary file directory.
+                clear_log : Flag to clear the log file created for debugging the metadata. Default True.
         """
         return TdmsFileExt(
             file, raw_timestamps=raw_timestamps, memmap_dir=memmap_dir, read_metadata_only=True, keep_open=True, clear_log=clear_log)
@@ -265,23 +266,24 @@ class TdmsFileExt(TdmsFile):
         """
         return TdmsFileExt(file, raw_timestamps=raw_timestamps, read_metadata_only=True, clear_log=clear_log)
     
-    def __init__(self, file, raw_timestamps=False, memmap_dir=None, read_metadata_only=False, keep_open=False, clear_log=True):
-        """Initialise a new TdmsFile object
+    def __init__(self, file: str, raw_timestamps: bool=False, memmap_dir=None, read_metadata_only: bool=False, keep_open: bool=False, clear_log: bool=True):
+        """
+            Initialise a new TdmsFileExt object
 
-        :param file: Either the path to the tdms file to read
-            as a string or pathlib.Path, or an already opened file.
-        :param raw_timestamps: By default TDMS timestamps are read as numpy datetime64
-            but this loses some precision.
-            Setting this to true will read timestamps as a custom TdmsTimestamp type.
-        :param memmap_dir: The directory to store memory mapped data files in,
-            or None to read data into memory. The data files are created
-            as temporary files and are deleted when the channel data is no
-            longer used. tempfile.gettempdir() can be used to get the default
-            temporary file directory.
-        :param read_metadata_only: If this parameter is enabled then only the
-            metadata of the TDMS file will read.
-        :param keep_open: Keeps the file open so data can be read if only metadata
-            is read initially.
+            Inputs:
+                file: Path to TDMS file
+                raw_timestamps: By default TDMS timestamps are read as numpy datetime64
+                    but this loses some precision.
+                    Setting this to true will read timestamps as a custom TdmsTimestamp type.
+                memmap_dir: The directory to store memory mapped data files in,
+                    or None to read data into memory. The data files are created
+                    as temporary files and are deleted when the channel data is no
+                    longer used. tempfile.gettempdir() can be used to get the default
+                    temporary file directory.
+                read_metadata_only: If True, only the metadata of the TDMS file will read.
+                keep_open: Keeps the file open so data can be read if only metadata
+                    is read initially.
+                clear_log : Flag to initialise and clear the log file. Recommended to be True.
         """
 
         self._memmap_dir = memmap_dir
@@ -304,7 +306,6 @@ class TdmsFileExt(TdmsFile):
                     if h.baseFilename == r"tdms.log":
                         h = fh
 
-
         self._reader = TdmsReaderExt(file)
 
         try:
@@ -318,7 +319,17 @@ class TdmsFileExt(TdmsFile):
                 self._reader.close()
     
     # find good channels by identifying the channels whose data is within the plot limits properties
-    def find_goodchannels(self, th: float = 0.3):
+    def find_goodchannels(self, th: float = 0.3) -> dict:
+        """
+            Find the channels whose values are within the limit -th <= value <= th.
+
+            This was added to check for corrupt values that went to NAN or INF
+
+            Inputs:
+                th : Value representing the abs value limits. Default 0.3.
+
+            Returns a dict of channel paths for the channels that are valid
+        """
         good_chanels = {}
         # set the limits
         plot_min = -1*th
@@ -333,7 +344,7 @@ class TdmsFileExt(TdmsFile):
         return good_chanels
     
     # modified version of as_dataframe to only extract the data
-    def as_dataframe(self, th: float = 0.3 ,time_index=False, absolute_time=False, scaled_data=True, arrow_dtypes=False) -> pd.DataFrame:
+    def as_dataframe(self, th: float = 0.3 ,time_index: bool=False, absolute_time: bool=False, scaled_data: bool=True, arrow_dtypes: bool=False) -> pd.DataFrame:
         """ 
             Modified version of as_dataframe method that only exports channels whose min/max values are within a certain limit
 
@@ -351,8 +362,8 @@ class TdmsFileExt(TdmsFile):
                     Set to False to use raw unscaled data.
                     For DAQmx data, there will be one column per DAQmx raw scaler and column names will include the scale id.
                 arrow_dtypes: Use PyArrow data types in the DataFrame.
-                :return: The full TDMS file data.
-                :rtype: pandas.DataFrame
+            
+            Returns dataframe of obtained data
         """
         from nptdms.export.pandas_export import _channels_to_dataframe
         # if the threshold is None then just use the default method
@@ -400,10 +411,10 @@ def stack_metadata(file: str) -> dict:
     return meta_all
 
 
-
 ## from https://scipy-cookbook.readthedocs.io/items/ButterworthBandpass.html
 # band pass
-def butter_bandpass(lowcut, highcut, order=5):
+def butter_bandpass(lowcut: float, highcut: float, order: int=5) -> np.ndarray:
+    """ Create a Butterworth bandpass filter SOS digital params """
     nyq = 0.5 * 1e6
     low = lowcut / nyq
     high = highcut / nyq
@@ -411,37 +422,73 @@ def butter_bandpass(lowcut, highcut, order=5):
     return butter(order, [low, high], btype='bandpass', analog=False, output='sos')
 
 
-def butter_bandpass_filter(data, lowcut, highcut, order=5):
+def butter_bandpass_filter(data: np.ndarray, lowcut: float, highcut: float, order: int=5) -> np.ndarray:
+    """
+        Apply a Butterwoth bandpass filter to the specified data
+
+        Inputs:
+            data : numpy array to filter
+            lowcut : Lower freq band
+            highcut: Higher freq band
+            order : Model order
+
+        Returns filtered numpy array
+    """
     sos = butter_bandpass(lowcut, highcut, order=order)
-    return sosfilt(sos, data)
+    return sosfiltfilt(sos, data)
 
 # band stop
-def butter_bandstop(lowcut, highcut, order=5):
+def butter_bandstop(lowcut: float, highcut: float, order: int=5) -> np.ndarray:
+    """ Create a Butterworth bandstop filter SOS digital params """
     nyq = 0.5 * 1e6
     low = lowcut / nyq
     high = highcut / nyq
     return butter(order, [low, high], btype='bandstop', analog=False, output='sos')
 
 
-def butter_bandstop_filter(data, lowcut, highcut, order=5):
+def butter_bandstop_filter(data: np.ndarray, lowcut: float, highcut: float, order: int=5) -> np.ndarray:
+    """
+        Apply a Butterwoth bandstop filter to the specified data
+
+        Inputs:
+            data : numpy array to filter
+            lowcut : Lower freq band
+            highcut: Higher freq band
+            order : Model order
+
+        Returns filtered numpy array
+    """
     sos = butter_bandstop(lowcut, highcut, 1e6, order=order)
-    return sosfilt(sos, data)
+    return sosfiltfilt(sos, data)
 
 # general band filter
-def butter_band(lowcut, highcut, btype, order=5):
+def butter_band(lowcut: float, highcut: float, btype: str, order: int=5) -> np.ndarray:
+    """ Create a Butterworth filter SOS digital params """
     nyq = 0.5 * 1e6
     low = lowcut / nyq
     high = highcut / nyq
-    return butter(order, [low, high], analog=False, output='sos')
+    return butter(order, [low, high], btype=btype, analog=False, output='sos')
 
 
-def butter_bfilter(data, lowcut, highcut, btype, order=5):
+def butter_bfilter(data: np.ndarray, lowcut: float, highcut: float, btype: str, order: int=5) -> np.ndarray:
+    """
+        Apply a Butterwoth bandpass filter to the specified data
+
+        Inputs:
+            data : numpy array to filter
+            lowcut : Lower freq band
+            highcut: Higher freq band
+            btype : Type of filter to apply e.g. highpass, lowpass, bandstop etc.
+            order : Model order
+
+        Returns filtered numpy array
+    """
     sos = butter_band(lowcut, highcut, btype, order)
-    return sosfilt(sos, data)
+    return sosfiltfilt(sos, data)
 
 
 def applyFilters(data: np.ndarray,freq: float | list,mode: str | list,**kwargs):
-    '''
+    """
         Apply a series of filters to the given daa
 
         freq is either a single cutoff frequency or a 2-element collection for band filters
@@ -453,7 +500,7 @@ def applyFilters(data: np.ndarray,freq: float | list,mode: str | list,**kwargs):
             mode : String or list of strings defining type of filters
 
         Returns filtered data
-    '''
+    """
     # ensure frequencies and modes are lists
     if isinstance(freq,(int,float)):
         freq = [freq,]
@@ -469,7 +516,7 @@ def applyFilters(data: np.ndarray,freq: float | list,mode: str | list,**kwargs):
         # if it's a single value then it's a highpass/lowpass filter
         if isinstance(c,(int,float)):
             sos = butter(kwargs.get("order",10), c/1e6, m, fs=1e6, output='sos',analog=False)
-            data = sosfilt(sos, data)
+            data = sosfiltfilt(sos, data)
         # if it's a list/tuple then it's a bandpass filter
         elif isinstance(c,(tuple,list)):
             if m == "bandpass":
@@ -480,7 +527,7 @@ def applyFilters(data: np.ndarray,freq: float | list,mode: str | list,**kwargs):
 
 
 def plotFreqResponse(freq: float | tuple[float, float],btype: str,pts: int =int(1e6/4),**kwargs) -> plt.Figure:
-    '''
+    """
         Butterworth filter frequency response
 
         freq is either a single cutoff frequency or a 2-element collection for band filters
@@ -493,7 +540,7 @@ def plotFreqResponse(freq: float | tuple[float, float],btype: str,pts: int =int(
             order : Filter model order
 
         Returns figure
-    '''
+    """
     # digital filters require freq be between 0 and 1
     if isinstance(freq,(float,int)):
         freq_norm = freq/(1e6/2)
@@ -521,7 +568,7 @@ def plotFreqResponse(freq: float | tuple[float, float],btype: str,pts: int =int(
 
 
 def loadTDMSData(path: str) -> pd.DataFrame:
-    '''
+    """
         Load in the TDMS data and add a column for time
 
         All the functions were built around there being a Time columns rather than using index as time
@@ -529,7 +576,7 @@ def loadTDMSData(path: str) -> pd.DataFrame:
         Columns are renamed from their full paths to Input 0 and Input 1
 
         Returns pandas dataframe
-    '''
+    """
     data = TdmsFile(path).as_dataframe(time_index=False)
     data['Time (s)'] = np.arange(data.shape[0])/1e6
     data.rename(columns={c:c.split('/')[-1].strip("'") for c in data.columns},inplace=True)
@@ -537,7 +584,7 @@ def loadTDMSData(path: str) -> pd.DataFrame:
 
 
 def loadTDMSSub(path: str,chunk: tuple[int|float, int|float],is_time: bool = False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    '''
+    """
         Load in a sub-section of TDMS data
 
         Helps avoid loading in the entire file
@@ -548,7 +595,7 @@ def loadTDMSSub(path: str,chunk: tuple[int|float, int|float],is_time: bool = Fal
             is_time : Flag indicating of the chunk range is index or time range
 
         Returns tuple of specified chunk in time vector, Input 0 and Input 1
-    '''
+    """
     with TdmsFile(path) as tdms_file:
         # find group that contains recording
         group = list(filter(lambda x : "Recording" in x.name,tdms_file.groups()))[0]
@@ -564,7 +611,7 @@ def loadTDMSSub(path: str,chunk: tuple[int|float, int|float],is_time: bool = Fal
         
 
 def replotAE(path: str,clip: bool = True,ds : int =100) -> tuple[plt.Figure, plt.Figure]:
-    '''
+    """
         Replot the TDMS Acoutic Emission files
 
         If the file is supported in CLIP_PERIOD dictionary at the top of the file, then  it is cropped to the target period else plotted at full res
@@ -574,7 +621,7 @@ def replotAE(path: str,clip: bool = True,ds : int =100) -> tuple[plt.Figure, plt
             clip : Flag to clip the data. If True, then CLIP_PERIOD is referenced. If a tuple, then it's taken as the time period to clip to
 
         Returns figures for Input 0 and Input 1 respectively
-    '''
+    """
     sns.set_theme("talk")
     data = loadTDMSData(path)
     # clip to known activity
@@ -600,7 +647,7 @@ def replotAE(path: str,clip: bool = True,ds : int =100) -> tuple[plt.Figure, plt
 
 
 def plotRaster(path: str,nbins: int = 1000,**kwargs):
-    '''
+    """
         Plot the large dataset by rasterising into colours
 
         The parameter nbins controls the number of colours used
@@ -614,7 +661,7 @@ def plotRaster(path: str,nbins: int = 1000,**kwargs):
             nbins : Number of colour bins
             cmap : Matplotlib colour map to use to convert data to colours
             bk : Background colour of plot
-    '''
+    """
     import datashader as ds
     import colorcet as cc
     from fast_histogram import histogram2d
@@ -644,7 +691,7 @@ def plotRaster(path: str,nbins: int = 1000,**kwargs):
 
 
 def plotLombScargle(path: str,freqs: np.array=np.arange(300e3,350e3,1e3),normalize: bool = True,**kwargs) -> tuple[plt.Figure, plt.Figure]:
-    '''
+    """
         Plot Lomb-Scargle periodgram of the given file between the target frequencies
 
         Input 0 and Input 1 are plotted on two separate figures and returned
@@ -658,7 +705,7 @@ def plotLombScargle(path: str,freqs: np.array=np.arange(300e3,350e3,1e3),normali
             input1_title : Figure title used on plot for Input 1
 
         Returns generated figures
-    '''
+    """
     from scipy.signal import lombscargle
     time,i0,i1 = loadTDMSData(path)
     # convert freq to rad/s
@@ -684,7 +731,7 @@ def plotLombScargle(path: str,freqs: np.array=np.arange(300e3,350e3,1e3),normali
 
 
 def plotSTFTSB(signal: np.ndarray,nperseg: int =256,fclip: float =None,**kwargs) -> plt.Figure:
-    '''
+    """
         Plot the STFT of the target signal using Seaborn
 
         fclip is for clipping the freq to above the set threshold
@@ -697,7 +744,7 @@ def plotSTFTSB(signal: np.ndarray,nperseg: int =256,fclip: float =None,**kwargs)
             theme : Seaborn threshold to use
 
         Returns generated figure
-    '''
+    """
     import pandas as pd
     sns.set_theme(kwargs.get("theme","paper"))
     f, t, Zxx = stft(signal, 1e6, nperseg=nperseg)
@@ -712,7 +759,7 @@ def plotSTFTSB(signal: np.ndarray,nperseg: int =256,fclip: float =None,**kwargs)
 
 
 def plotSTFTPLT(signal: np.ndarray,nperseg: int =256,fclip: float =None,use_log: bool =True,**kwargs) -> plt.Figure:
-    '''
+    """
         Plot the STFT of the target signal using Matplotlib
 
         fclip is for clipping the freq to above the set threshold
@@ -726,7 +773,7 @@ def plotSTFTPLT(signal: np.ndarray,nperseg: int =256,fclip: float =None,use_log:
             theme : Seaborn threshold to use
 
         Returns generated figure
-    '''
+    """
     import matplotlib.colors as colors
     # set seaborne theme
     sns.set_theme(kwargs.get("theme","paper"))
@@ -786,8 +833,8 @@ def STFTWithLombScargle(path: str,span: float=0.4,n_bins: int=100, grid_size: in
     return plt.gcf()
 
 
-def plotSignalEnergyFreqBands(data,fstep,tclip=None,fmin=0.1):
-    '''
+def plotSignalEnergyFreqBands(data: str| pd.DataFrame,fstep: float,tclip:list[float, float]|None=None,fmin: float=0.1) -> plt.Figure:
+    """
         Plot the signal energy within frequency bands
 
         Going from fmin to 1e6/2 in steps of fstep
@@ -799,13 +846,13 @@ def plotSignalEnergyFreqBands(data,fstep,tclip=None,fmin=0.1):
         a specifc stripe or for at least limiting it to the activity to manage memory better
 
         Inputs:
-            data : String or result of loadTDMSData or loadTDMSSub
+            data : File path or result of loadTDMSData or loadTDMSSub
             fstep : Frequency steps
             tclip : Time period to clip to. Default None
             fmin : Min frequency to start at. Has to be non-zero. Default 0.1 Hz
 
         Return generated figure
-    '''
+    """
     if isinstance(data,str):
         data = loadTDMSData(data)
     if tclip:
@@ -828,8 +875,8 @@ def plotSignalEnergyFreqBands(data,fstep,tclip=None,fmin=0.1):
     return fig
 
 
-def plotSTFTStripes(path,nperseg=256,fclip=None,use_log=True,**kwargs):
-    '''
+def plotSTFTStripes(path: str,nperseg: int=256,fclip: float=None,use_log: bool=True,**kwargs):
+    """
         Plot the STFT of each stripe in each channel
 
         This relies on the stripe time periods being listed in STRIPE_PERIOD and the file being supported
@@ -845,7 +892,8 @@ def plotSTFTStripes(path,nperseg=256,fclip=None,use_log=True,**kwargs):
             nperseg : Number of points per segment
             fclip : Frequency to clip the STFT above
             use_log : Use log y-axis
-    '''
+            **kwargs: Keyword arguments passed to plotSTFTPLT
+    """
     # for each tdms
     for fn in glob(path):
         periods = list(filter(lambda x : os.path.splitext(os.path.basename(fn))[0] in x,PERIODS))
@@ -872,8 +920,8 @@ def plotSTFTStripes(path,nperseg=256,fclip=None,use_log=True,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def plotStripes(path,ds=None,**kwargs):
-    '''
+def plotStripes(path: str,ds: float=None,**kwargs):
+    """
         Plot the STFT of each stripe in each channel
 
         This relies on the stripe time periods being listed in STRIPE_PERIOD and the file being supported
@@ -887,7 +935,7 @@ def plotStripes(path,ds=None,**kwargs):
         Input:
             path : TDMS path
             ds : Rate of downsampling
-    '''
+    """
     sns.set_theme("paper")
     # for each tdms
     for fn in glob(path):
@@ -919,8 +967,8 @@ def plotStripes(path,ds=None,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def plotStripesLimits(path,**kwargs):
-    '''
+def plotStripesLimits(path: str,**kwargs) -> plt.Figure:
+    """
         Plot the max value of each stripe for each tool.
 
         This relies on the stripe time periods being listed in STRIPE_PERIOD and the file being supported.
@@ -944,7 +992,7 @@ def plotStripesLimits(path,**kwargs):
             order : Butterworth model order. Default 10.
 
         Returns a plot with max signal data
-    '''
+    """
     import matplotlib.patches as mpatches
     from matplotlib.ticker import MaxNLocator
     #mode_dict = {'lp': "Low Pass",'hp':"High Pass",'bp':"Bandpass","lowpass":"Low Pass","highpass":"High Pass","bandpass":"Bandpass"}
@@ -979,8 +1027,8 @@ def plotStripesLimits(path,**kwargs):
                 # if it's a single value then it's a highpass/lowpass filter
                 if isinstance(c,(int,float)):
                     sos = butter(kwargs.get("order",10), c/(1e6/2), m, fs=1e6, output='sos',analog=False)
-                    i0 = sosfilt(sos, i0)
-                    i1 = sosfilt(sos, i1)
+                    i0 = sosfiltfilt(sos, i0)
+                    i1 = sosfiltfilt(sos, i1)
                 # if it's a list/tuple then it's a bandpass filter
                 elif isinstance(c,(tuple,list)):
                     if m == "bandpass":
@@ -1095,8 +1143,8 @@ def plotStripesLimits(path,**kwargs):
         print(f"Unsupported file {path}!")
 
 
-def drawEdgeAroundStripe(path,dist=int(50e3),mode="separate",**kwargs):
-    '''
+def drawEdgeAroundStripe(path: str,dist: int=int(50e3),mode:str="separate",**kwargs) -> plt.Figure:
+    """
         Draw around the edge of the stripe AE data using the peaks
 
         The +ve and -ve edges of Input 0 and Input 1 are identified and plotted
@@ -1122,7 +1170,7 @@ def drawEdgeAroundStripe(path,dist=int(50e3),mode="separate",**kwargs):
                 stripe_ref : String or index reference of stripe.
 
         Returns generated figure
-    '''
+    """
     from scipy.signal import find_peaks
     import matplotlib.patches as mpatches
     fname = os.path.splitext(os.path.basename(path))[0]
@@ -1264,8 +1312,8 @@ def drawEdgeAroundStripe(path,dist=int(50e3),mode="separate",**kwargs):
     f.suptitle(fname)
     return f
 
-def plotAllStripeEdges(path,dist=int(50e3),**kwargs):
-    '''
+def plotAllStripeEdges(path: str,dist: int=int(50e3),**kwargs) -> plt.Figure:
+    """
         Trace the edges of each stripe and draw the edges for Input 0 and Input 1 on the same axis
 
         The edges are traced using find_peaks where the user sets the dist parameter.
@@ -1281,7 +1329,7 @@ def plotAllStripeEdges(path,dist=int(50e3),**kwargs):
             dist : Distance between peaks. See find_peaks
 
         Returns figure
-    '''
+    """
     from scipy.signal import find_peaks
     import matplotlib.patches as mpatches
     from matplotlib.pyplot import cm
@@ -1352,8 +1400,8 @@ def plotAllStripeEdges(path,dist=int(50e3),**kwargs):
 def PolyArea(x,y):
     return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
 
-def calcStripeAreas(path,dist=int(50e3),**kwargs):
-    '''
+def calcStripeAreas(path: str,dist: int=int(50e3),**kwargs) -> plt.Figure:
+    """
         Find the edges of the stripe and estimate the area treating the edges as a complicated polygon
 
         The edges are traced using find_peaks where the user sets the dist parameter.
@@ -1371,7 +1419,7 @@ def calcStripeAreas(path,dist=int(50e3),**kwargs):
             dist : Distance between peaks. See find_peaks
 
         Returns figure
-    '''
+    """
     from scipy.signal import find_peaks
     from matplotlib.pyplot import cm
     sns.set_theme("paper")
@@ -1457,8 +1505,8 @@ def calcStripeAreas(path,dist=int(50e3),**kwargs):
         f.suptitle(os.path.splitext(os.path.basename(path))[0]+" Shoelace Area between Edges")
         return f
 
-def filterStripes(fn,freq=50e3,mode='highpass',**kwargs):
-    '''
+def filterStripes(fn: str,freq:float=50e3,mode: str='highpass',**kwargs):
+    """
         Apply filters to each identified stripe in the file
 
         A filter can be applied to the signal using the mode, order and and cutoff_freq keywords.
@@ -1479,7 +1527,7 @@ def filterStripes(fn,freq=50e3,mode='highpass',**kwargs):
             fn : TDMS path
             freq : Cutoff freq. Float, list of floats or list of tuples/lists. Default 50e3.
             order : Filter order. Default 10.
-    '''
+    """
     fname = os.path.splitext(os.path.basename(fn))[0]
     # check if supported
     periods = list(filter(lambda x : fname in x,PERIODS))
@@ -1517,8 +1565,8 @@ def filterStripes(fn,freq=50e3,mode='highpass',**kwargs):
                 if isinstance(c,(int,float)):
                     print("bing!")
                     sos = butter(kwargs.get("order",10), c, m, fs=1e6, output='sos',analog=False)
-                    i0 = sosfilt(sos, i0)
-                    i1 = sosfilt(sos, i1)
+                    i0 = sosfiltfilt(sos, i0)
+                    i1 = sosfiltfilt(sos, i1)
                 # if it's a list/tuple then it's a bandpass filter
                 elif isinstance(c,(tuple,list)):
                     print("bong!")
@@ -1543,15 +1591,18 @@ def filterStripes(fn,freq=50e3,mode='highpass',**kwargs):
     else:
         print(f"Unsupported file {fn}!")
 
-def stripeSpectrogram(fn,shift=False):
-    '''
+
+def stripeSpectrogram(fn: str,shift: bool=False) -> plt.Figure:
+    """
         Plot the spectrogram of each stripe in the target file
 
         Each file is 
 
         Inputs:
             fn : TDMS path
-    '''
+
+        Returns generated figure
+    """
     from scipy.signal import spectrogram
     import matplotlib.colors as colors 
     fname = os.path.splitext(os.path.basename(fn))[0]
@@ -1584,8 +1635,9 @@ def stripeSpectrogram(fn,shift=False):
             fig.savefig(fr"{os.path.splitext(fn)[0]}-Input 1-spectrogram-{sname}{'-shifted' if shift else ''}.png")
             plt.close(fig)
 
-def stackFilterStripes(path,freq=50e3,mode='highpass',**kwargs):
-    '''
+
+def stackFilterStripes(path: str,freq: float=50e3,mode: str='highpass',**kwargs):
+    """
         Apply a highpass filter to each identified stripe in the file
 
         A Butterworth filter set to high-pass is applied to the target stripe.
@@ -1601,7 +1653,7 @@ def stackFilterStripes(path,freq=50e3,mode='highpass',**kwargs):
             path : TDMS path
             freq : Cutoff freq. Default 50 KHz
             order : Filter order. Default 10.
-    '''
+    """
     from scipy import signal
     sns.set_theme("paper")
     mode_dict = {'lp': "Low Pass",'hp':"High Pass",'bp':"Bandpass",'lowpass': "Low Pass",'highpass':"High Pass",'bandpass':"Bandpass"}
@@ -1621,10 +1673,10 @@ def stackFilterStripes(path,freq=50e3,mode='highpass',**kwargs):
                 # load sub bit of the stripe
                 time,i0,i1 = loadTDMSSub(path,chunk,is_time=True)
                 # filter data
-                filtered = signal.sosfilt(sos, i0)
+                filtered = signal.sosfiltfilt(sos, i0)
                 ax_i0.plot(time,filtered,label=sname)
                 # filter data
-                filtered = signal.sosfilt(sos, i1)
+                filtered = signal.sosfiltfilt(sos, i1)
                 ax_i1.plot(time,filtered,label=sname)
 
             ax_i0.legend(loc='upper left')
@@ -1639,9 +1691,17 @@ def stackFilterStripes(path,freq=50e3,mode='highpass',**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def periodogramStripes(path,**kwargs):
-    '''
-    '''
+def periodogramStripes(path: str,**kwargs):
+    """ 
+        Plot the periodigram of the target signal and saves the plots locally
+
+        Currently hard coded to Input 0 and Input 1.
+
+        Loads file using loadTDMSSub
+
+        Inputs:
+            path : Input file path
+    """
     from scipy import signal
     sns.set_theme("paper")
     fname = os.path.splitext(path)[0]
@@ -1658,7 +1718,7 @@ def periodogramStripes(path,**kwargs):
                 time,i0,i1 = loadTDMSSub(path,chunk,is_time=True)
                 # plot period
                 fig,ax = plt.subplots(constrained_layout=True)
-                f, Pxx_den = signal.periodogram(i0, 1e6)
+                f, Pxx_den = signal.periodogram(i0, kwargs.get("sr",1e6))
                 ax.plot(f,Pxx_den)
                 ax.set(xlabel="Frequency (Hz)",ylabel="PSD (V**2/Hz)",title=f"{ftitle}\nInput 0 {sname} Power Spectral Density")
                 fig.savefig(fr"{fname}-Input 0-{sname}-psd.png")
@@ -1674,8 +1734,9 @@ def periodogramStripes(path,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def welchStripes(path,**kwargs):
-    '''
+
+def welchStripes(path: str,**kwargs):
+    """
         Plot the Welch PSD of each stripe in the target file
 
         Each stripe is saved separately to the same location as the source file
@@ -1687,7 +1748,7 @@ def welchStripes(path,**kwargs):
             path : TDMS fpath
             freq_clip : Frequency range to clip the plot to
             yspace : Fraction of max value to add to the top. Default 0.1.
-    '''
+    """
     from scipy import signal
     sns.set_theme("paper")
     fname = os.path.splitext(path)[0]
@@ -1734,8 +1795,9 @@ def welchStripes(path,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def welchStripesOverlap(path,**kwargs):
-    '''
+
+def welchStripesOverlap(path: str,**kwargs):
+    """
         Plot the Welch PSD of each stripe in the target file and OVERLAP all the plots on the same axis
 
         Each stripe is saved separately to the same location as the source file
@@ -1747,7 +1809,7 @@ def welchStripesOverlap(path,**kwargs):
             path : TDMS fpath
             freq_clip : Frequency range to clip the plot to
             yspace : Fraction of max value to add to the top. Default 0.1.
-    '''
+    """
     from scipy import signal
     sns.set_theme("paper")
     fname = os.path.splitext(path)[0]
@@ -1814,8 +1876,9 @@ def welchStripesOverlap(path,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def filterStripesProportion(path,minfreq=10e3,**kwargs):
-    '''
+
+def filterStripesProportion(path: str,minfreq: float=10e3,**kwargs):
+    """
         For each stripe, change the cut off frequency and record the ratio between the filtered max value and the unfiltered max value.
 
         The minfreq value is the minimum cutoff freq. Go too low and the gain will skyrocket due to close to 0 freqs being removed.
@@ -1827,7 +1890,7 @@ def filterStripesProportion(path,minfreq=10e3,**kwargs):
             minfreq : Minimum cutoff frequency. Default 10e3
             order : Filter order. Default 10.
             res : Resolution of the jumps. Default 1e3.
-    '''
+    """
     from scipy import signal
     sns.set_theme("paper")
     # for each tdms
@@ -1854,10 +1917,10 @@ def filterStripesProportion(path,minfreq=10e3,**kwargs):
                     # make filter
                     sos = signal.butter(kwargs.get("order",10), filt/(1e6/2), 'lowpass', fs=1e6, output='sos', analog=False)
                     # filter data
-                    filtered = signal.sosfilt(sos, i0)
+                    filtered = signal.sosfiltfilt(sos, i0)
                     gain_i0.append(filtered.max()/ref_i0.max())
                     # filter data
-                    filtered = signal.sosfilt(sos, i1)
+                    filtered = signal.sosfiltfilt(sos, i1)
                     gain_i1.append(filtered.max()/ref_i1.max())
                     # append cutoff freq
                     freq.append(filt)
@@ -1874,8 +1937,9 @@ def filterStripesProportion(path,minfreq=10e3,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def filterStripesBP(path,lowcut=300e3,highcut=350e3,**kwargs):
-    '''
+
+def filterStripesBP(path: str,lowcut:float=300e3,highcut:float=350e3,**kwargs):
+    """
         Apply a bandpass butterworth filter to each stripe in the target file and plot the result
 
         A Butterworth bandpass filter is applied to the signal.
@@ -1890,7 +1954,7 @@ def filterStripesBP(path,lowcut=300e3,highcut=350e3,**kwargs):
             lowcut : Low cut off frequency. Default 300 kHz
             highcut : High cut off frequency. Default 350 kHz
             order : Order of filter. Default 6.
-    '''
+    """
     for fn in glob(path):
         fname = os.path.splitext(os.path.basename(fn))[0]
         # check if supported
@@ -1929,8 +1993,9 @@ def filterStripesBP(path,lowcut=300e3,highcut=350e3,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def stackFilterStripesBP(path,freq,**kwargs):
-    '''
+
+def stackFilterStripesBP(path: str,freq: list[tuple[float, float]],**kwargs):
+    """
         Apply a bandpass butterworth filter to each stripe in the target file and plot the result
         ON THE SAME AXIS
 
@@ -1939,14 +2004,13 @@ def stackFilterStripesBP(path,freq,**kwargs):
 
         Generated plots are saved in the same location as the source file
 
-        This is intended to investigate specific frequency bandsidentified in the STFT
+        This is intended to investigate specific frequency bands identified in the STFT
 
         Inputs:
             path : TDMS file path
-            lowcut : Low cut off frequency. Default 300 kHz
-            highcut : High cut off frequency. Default 350 kHz
+            freq : List of freq pairs representing each bandpass filter to test
             order : Order of filter. Default 6.
-    '''
+    """
     for fn in glob(path):
         # check if supported
         periods = list(filter(lambda x : os.path.splitext(os.path.basename(fn))[0] in x,PERIODS))
@@ -1987,48 +2051,54 @@ def stackFilterStripesBP(path,freq,**kwargs):
         else:
             print(f"Unsupported file {fn}!")
 
-def stackFilterEdgesBP3D(path,freq,dist=int(50e3),**kwargs):
+
+def findEdgePoly3D(time: np.ndarray, i0: np.ndarray, dist: float) -> list[np.ndarray, np.ndarray]:
+    """
+        Find the edges of signal in the +ve and negativ e
+    """
     from scipy.signal import find_peaks
+    tt = []
+    V = []
+    #ff = []
+
+    ## find the peaks in the +ve half of the signal
+    # mask signal to +ve
+    mask_filt = i0.copy()
+    mask_filt[i0<0]=0
+    # find peaks in the signal
+    pks = find_peaks(mask_filt,distance=dist)[0]
+    if len(pks)==0:
+        raise ValueError("Failed to find +ve edge in data!")
+    
+    #pts.extend([[time[pk],mask_filt[pk],freq] for pk in pks])
+    tt.extend(time[pks].tolist())
+    V.extend(mask_filt[pks].tolist())
+    #ff.extend(len(pks)*[freq,])
+
+    ## find the peaks in the -ve half of the signal
+    # mask signal to -ve
+    mask_filt = i0.copy()
+    mask_filt[i0>0]=0
+    # find peaks in the signal
+    pks = find_peaks(mask_filt,distance=dist)[0]
+    if len(pks)==0:
+        raise ValueError("Failed to find -ve edge in data!")
+    pks = pks[::-1]
+    #pts.extend([[time[pk],mask_filt[pk],freq] for pk in pks[::-1]])
+    tt.extend(time[pks].tolist())
+    V.extend(mask_filt[pks].tolist())
+    #ff.extend(len(pks)*[freq,])
+    return list(zip(tt,V))
+
+
+def stackFilterEdgesBP3D(path: str,freq,dist=int(50e3),**kwargs):
     from matplotlib.collections import PolyCollection
-
-    def findEdgePoly3D(time,i0,freq):
-        tt = []
-        V = []
-        ff = []
-        # mask signal to +ve
-        mask_filt = i0.copy()
-        mask_filt[i0<0]=0
-        # find peaks in the signal
-        pks = find_peaks(mask_filt,distance=dist)[0]
-        if len(pks)==0:
-            raise ValueError("Failed to find +ve edge in data!")
-        
-        #pts.extend([[time[pk],mask_filt[pk],freq] for pk in pks])
-        tt.extend(time[pks].tolist())
-        V.extend(mask_filt[pks].tolist())
-        ff.extend(len(pks)*[freq,])
-
-        # mask signal to -ve
-        mask_filt = i0.copy()
-        mask_filt[i0>0]=0
-        # find peaks in the signal
-        pks = find_peaks(mask_filt,distance=dist)[0]
-        if len(pks)==0:
-            raise ValueError("Failed to find -ve edge in data!")
-        pks = pks[::-1]
-        #pts.extend([[time[pk],mask_filt[pk],freq] for pk in pks[::-1]])
-        tt.extend(time[pks].tolist())
-        V.extend(mask_filt[pks].tolist())
-        ff.extend(len(pks)*[freq,])
-        #return [list(zip(tt,ff,V))]
-        print(len(tt),len(V),len(ff))
-        return list(zip(tt,V))
-
     for fn in glob(path):
+        fname = os.path.splitext(os.path.basename(fn))[0]
         # check if supported
-        periods = list(filter(lambda x : os.path.splitext(os.path.basename(fn))[0] in x,PERIODS))
+        periods = list(filter(lambda x : fname in x,PERIODS))
         if periods:
-            periods = periods[0][os.path.splitext(os.path.basename(fn))[0]]
+            periods = periods[0][fname]
             # filter to time periods dict
             for sname,chunk in periods.items():
                 print(sname)
@@ -2038,9 +2108,11 @@ def stackFilterEdgesBP3D(path,freq,dist=int(50e3),**kwargs):
                 #f0,ax0 = plt.subplots(constrained_layout=True)
                 f0 = plt.figure()
                 ax0 = f0.add_subplot(projection="3d")
-                verts = findEdgePoly3D(time,i0,0)
+                # find the edges in 3d
+                verts = findEdgePoly3D(time,i0,dist)
                 print(np.array(verts).shape)
-                poly = PolyCollection([verts],facecolors=[plt.colormaps['viridis_r'](0.1),],alpha=.7)
+                # draw the edges as a 3d shape
+                poly = PolyCollection([verts],facecolors=[plt.colormaps[kwargs.get("cmap","viridis_r")](0.1),],alpha=.7)
                 ax0.add_collection3d(poly,zs=0,zdir='y')
                 plt.show()
 
@@ -2048,23 +2120,27 @@ def stackFilterEdgesBP3D(path,freq,dist=int(50e3),**kwargs):
                 f1,ax1 = plt.subplots(constrained_layout=True)
                 ax1.plot(time,i1,label="Original")
                 # make filter
+                bp_30 = butter_bandpass_filter(30e3,"lowpass")
                 for lowcut,highcut in freq:
                     print(lowcut,highcut)
-                    filtered = butter_bandpass_filter(30e3,"lowpass")(i0, lowcut, highcut, order=kwargs.get("order",6))
+                    # apply a first filter to below 30k and then apply the target freq?
+                    # can't remember why
+                    filtered = bp_30(i0, lowcut, highcut, order=kwargs.get("order",6))
                     ax0.plot(time,filtered,label=f"{lowcut},{highcut} Hz")
 
                     filtered = butter_bandpass_filter(i1, lowcut, highcut, order=kwargs.get("order",6))
                     ax1.plot(time,filtered,label=f"{lowcut},{highcut} Hz")
+                # set axis limits based on signal values
                 ax0.set_ylim(i0.min(),i0.max())
                 ax0.legend()
-                ax0.set(xlabel="Time (s)",ylabel="Voltage (V)",title=f"{os.path.splitext(os.path.basename(fn))[0]}, Input 0, {sname}")
+                ax0.set(xlabel="Time (s)",ylabel="Voltage (V)",title=f"{fname}, Input 0, {sname}")
                 plt.show()
                 f0.savefig(fr"{os.path.splitext(fn)[0]}-Input 0-time-stripe-{sname}-filtered-freq-bp-stack.png")
                 plt.close(f0)
 
                 ax1.set_ylim(i1.min(),i1.max())
                 ax1.legend()
-                ax1.set(xlabel="Time (s)",ylabel="Voltage (V)",title=f"{os.path.splitext(os.path.basename(fn))[0]}, Input 1, {sname}")
+                ax1.set(xlabel="Time (s)",ylabel="Voltage (V)",title=f"{fname}, Input 1, {sname}")
                 f1.savefig(fr"{os.path.splitext(fn)[0]}-Input 1-time-stripe-{sname}-filtered-freq-bp-stack.png")
                 plt.close(f1)
         else:
@@ -2159,7 +2235,7 @@ def convert_to_parquet(path: str, opath: str = None):
     if opath is None:
         opath = os.path.splitex(os.path.basename(path))[0]
 
-    df = TdmsFile(path, keep_open=True).as_dataframe(time_index=True, absolute_time=False)
+    df = TdmsFileExt(path, keep_open=True).as_dataframe(time_index=True, absolute_time=False)
     # change index to be called timestamp
     df.index.set_names(["Timestamp (s)"])
     # move index to column
