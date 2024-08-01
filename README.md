@@ -19,6 +19,13 @@ Possible conclusions include
 
 - [VSCode](https://code.visualstudio.com/) or other IDE (makes it easier to interact with Jupyter notebooks)
     + Easier to install and set up Jupyter notebooks
+  
+## Link to Data
+The CSQ and NPZ files from the paper can be found here
+
+[https://doi.org/10.15131/shef.data.c.7375201](https://doi.org/10.15131/shef.data.c.7375201)
+
+## Link to Papers
 
 ## Project Structure
 
@@ -30,8 +37,6 @@ Multiple sensor modalities are investigated to sensorize the process and build a
       * Python API for processing the thermal data produced by a FLIR T540 and the Acoustic Emission Sensors
   + [examples](examples)
       * Examples of using the API
-        
-## Link to Data
 
 ## Link to Papers
 
