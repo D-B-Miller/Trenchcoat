@@ -49,7 +49,7 @@ The CSQ and NPZ files from the paper can be found here
 
 - [scripts](src) : Program files for connecting to sensors, processing the data and generating results
   + [trenchcoat](src/trenchcoat) :Python API for processing the thermal data produced by a FLIR T540 and the Acoustic Emission Sensors
-      * [csqimageset](src/trenchcoat/csqimageset)
+      * [seq](src/trenchcoat/seq)
       * [dataparser](src/trenchcoat/dataparser)
       * [improcessing](src/trenchcoat/improcessing)
       * [parse_ae](src/trenchcoat/parse_ae)
