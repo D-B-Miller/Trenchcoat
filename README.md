@@ -56,6 +56,6 @@ The CSQ and NPZ files from the paper can be found here
       * [plotting](src/trenchcoat/plotting)
       * [repackcsv](src/trenchcoat/repackcsv)
       * [repackcsvp](src/trenchcoat/repackcsvp)
-  + [examples](examples) : Examples of using the API
+  + [notebooks](notebooks) : Notebooks explaining some of the main features in the API
 
 ## Examples
