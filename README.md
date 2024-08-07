@@ -29,7 +29,7 @@ The following commands build the scripts into a WHL, installs it and quickly tes
 ```bash
 python -m pip install setuptools build
 python -m build
-python -m pip install dist/Trenchcoat-1.0.0-py3-none-any.whl
+python -m pip install dist\Trenchcoat-1.0.0-py3-none-any.whl
 python -c "import trenchcoat"
 ```
 
