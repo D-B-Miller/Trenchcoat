@@ -14,7 +14,7 @@ import seaborn as sns
 from matplotlib import colormaps
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.widgets import Slider
-from scipy.distance import euclidean
+from scipy.spatial.distance import euclidean
 from scipy.fft import rfft2
 from scipy.signal import convolve2d
 from scipy.stats import entropy, kurtosis, norm, skew
