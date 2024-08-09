@@ -1,13 +1,14 @@
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from nptdms import TdmsFile
 from matplotlib.widgets import Slider
-import os
-import warnings
 from dataparser import loadTDMSData
 import seaborn as sns
+from glob import glob
+import os
+import warnings
+import cv2
 
 def plotMaxTemperaturePowder(path,tclip=1000.0,c=10,**kwargs):
     '''
@@ -1736,7 +1737,6 @@ def makeTimePeakMasks(path,time_skip=100,limit=0.5,time_dist=0.1,win=1.5):
     return f
 
 if __name__ == "__main__":
-    from glob import glob
     #f = compareAcousticSTFT("ae/sheff_lsbu_stripe_coating_1.tdms","ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",[151.3,156],[112,117],freq_mask=50e3,cmap='inferno',use_log=False)
     #f = compareAcousticSTFT("ae/sheff_lsbu_stripe_coating_1.tdms","ae/sheff_lsbu_stripe_coating_3_pulsing.tdms",[0,40],[0,40],freq_mask=None,cmap='inferno',use_log=False)
     #f = makeTimePeakMasks("ae/sheff_lsbu_stripe_coating_1.tdms")
