@@ -18,6 +18,8 @@ from scipy.spatial.distance import euclidean
 from scipy.fft import rfft2
 from scipy.signal import convolve2d
 from scipy.stats import entropy, kurtosis, norm, skew
+from scipy.optimize import curve_fit
+
 
 MAX_8_BIT = 255
 
@@ -1179,6 +1181,8 @@ class PlasmaGaussian:
         self._plasmaPk = None
         # model mode
         self.__mode = "standard"
+        # offset from right side
+        self.__offset = None
 
     def getMode(self):
         return self.__mode
@@ -1290,6 +1294,11 @@ class PlasmaGaussian:
                 g = self._shape[1]-(self._opt[0]*((g-g.min())/(g.max()-g.min()))).astype("int32")
             elif self.__mode == "exp":
                 g = PlasmaGaussian.fit_egauss(x_axis, *self._opt)
+            elif self.__mode == "legacy" or kwargs.get("use_legacy", False):
+                g = norm.pdf(x_axis,loc=self._opt[1],scale=self._opt[2])
+                # scale to 0- height
+                # change to be relative to left side of image
+                g = self._shape[1]-(self.height*((g-g.min())/(g.max()-g.min()))).astype("int32")
             # combine into a set of coordinates
             gct = np.column_stack((g,x_axis)).reshape((-1,1,2))
             # draw as a blue line
@@ -1308,9 +1317,8 @@ class PlasmaGaussian:
         # return the the drawing
         return self._draw
 
-
     def estRMSE(self) -> float:
-        """Calculate RMSE error between the last fitted gaussian and contour.
+        """Calculate RMSE between the last fitted gaussian and contour.
 
         Calculated between height of contour relative to left side of image and drawn gaussian
         relative to left side of image
@@ -1318,22 +1326,48 @@ class PlasmaGaussian:
         If a gaussian has not been fitted, np.nan is returned
 
         Returns RMSE
-        """# if there is no line fitted
+        """
+        # if there is no line fitted
         if not self._opt:
             return np.nan
-        if self.__mode == "standard":
-            g = norm.pdf(self._ct[:,:,1],loc=self._opt[1],scale=self._opt[2])
+        if self.__mode in ("standard", "model"):
+            #g = norm.pdf(self._ct[:,:,1],loc=self._opt[1],scale=self._opt[2])
+            g = PlasmaGaussian.gauss(self._ct[:,:,1],*self._opt)
         elif self.__mode == "exp":
             g = PlasmaGaussian.fit_egauss(self._ct[:,:,1], *self._opt)
         # scale to 0- height
         # change to be relative to left side of image
-        g = self._shape[1]-(self._opt[0]*((g-g.min())/(g.max()-g.min()))).astype("int32")
+        #g = self._shape[1]-(self._opt[0]*((g-g.min())/(g.max()-g.min()))).astype("int32")
         # get "height" value of contour
         # this is already relative to the left side due to coordinate system
         gt = self._ct[:,:,0].flatten()
+
         # find RMSE between contour (gt) and (g)
         return np.sqrt(np.sum((g-gt)**2)/g.shape[0])
 
+    def estMAE(self) -> float:
+        """Calculate MAE between the last fitted gaussian and contour.
+
+        Calculated between height of contour relative to left side of image and drawn gaussian
+        relative to left side of image
+
+        If a gaussian has not been fitted, np.nan is returned
+
+        Returns MAE
+        """
+        if not self._opt:
+            return np.nan
+        if not self._opt:
+            return np.nan
+        if self.__mode in ("standard", "model"):
+            #g = norm.pdf(self._ct[:,:,1],loc=self._opt[1],scale=self._opt[2])
+            g = PlasmaGaussian.gauss(self._ct[:,:,1],)
+        elif self.__mode == "exp":
+            g = PlasmaGaussian.fit_egauss(self._ct[:,:,1], *self._opt)
+            
+        # this is already relative to the left side due to coordinate system
+        gt = self._ct[:,:,0].flatten()
+        return np.abs(g-gt).mean()
 
     def estCtArea(self):
         """Find the area of the full contour before trimming.
@@ -1446,40 +1480,136 @@ class PlasmaGaussian:
             show_debug : Draw an image showing some debugging features
 
         Return list containing height, mean and std of the distribution
-        """# process frame to get coordintes representing sample of gaussian
-        y,x = self._clip(frame)
+        """
+        # process frame to get coordintes representing sample of gaussian
+        row,col = self._clip(frame)
         self._frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype("uint8")
         # if clipping failed to find the plasma and returned None
         # set parameters to None and return
-        if (y is None) or (x is None) or (y.shape[0] == 0) or (x.shape[0] == 0):
+        if (row is None) or (col is None) or (row.shape[0] == 0) or (col.shape[0] == 0):
             self._opt = None
             self._ocov = None
             return self._opt
         # get shape of the image
-        r,c = self._shape
+        height,width = self._shape
         # peak of the gaussian is furthest from the right side of the image
         # so is the smallest x value
-        xmii = np.argmin(x)
+        xmii = np.argmin(col)
         # what row that occurs at is the mean
-        mean = y[xmii]
-        # the height of the curve relative to the left side of the image
-        height = x[xmii]
+        self.mean = row[xmii]
+        # the height of the curve relative to the right side of the image
+        self.height = width-col[xmii]
+        # shift height to be relative to the right side of the image
+        col = width - col
         # calculate the standard deviation
-        std = int(np.std(c-x))
+        std = int(np.std(col))
         # set fitted values for mean and standard deivation
-        # height is converted to being relative to the right side of the image
-        self._opt = [c-height,mean,std]
+        #self._opt = [col.min(), height,mean,std]
+        # get result without scaling factor
+        pred = PlasmaGaussian.gauss(row, (width-col).min(), 1, self.mean, std)
+        # calculate scaling factor by dividing this original by the result
+        scale = col/pred
+        self._opt = [col.min(), scale.mean() ,self.mean,std]
+        return self._opt
+
+    # function for gaussian model
+    @staticmethod
+    def gauss(x: np.ndarray, offset:float, amp:float, mean:float, sigma:float) -> np.ndarray:
+        """Symmetrical Gaussian modelling function
+
+        The adjustment needed to put it in the right location on the image is left up to the user.
+        This is just a basic 
+
+        Inputs:
+            x : Input array
+            amp : Scaling factor on output
+            mean : X coordinate of distribution mean
+            sigma : Std dev of the distribution
+
+        Returns output of the model
+        """
+        return offset + amp/(sigma*np.sqrt(2*np.pi)) * np.exp(-(x - mean) ** 2 / (2 * sigma ** 2))
+
+    def fit_model(self, frame: np.ndarray, **kwargs) -> list:
+        """Fit a symmetrical Gaussian to the data using curve_fit.
+
+        Inputs:
+            frame : Frame of temperature values to process
+            sort_contour : Flag to identify the unqiue contour points and sort them in order of y-coordinate.
+                            This was found to shorten fitting times and reduce error. Default True.
+            method : Method used for fitting. See scipy.optimise.curve_fit. Default dogbox.
+            maxfev : Maximum number of evaluations when fitting. See scipy.optimise.curve_fit. Default 1e3.
+
+        Returns list of parameters found by curve fit
+        """
+        # process frame to get coordintes representing sample of gaussian (y,x)
+        row,col = self._clip(frame)
+        self._frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype("uint8")
+        # if clipping failed to find the plasma and returned None
+        # set parameters to None and return
+        if (row is None) or (col is None) or (row.shape[0] == 0) or (col.shape[0] == 0):
+            self._opt = None
+            self._ocov = None
+            return self._opt
+        # need at least 4 points to fit to 4 parameters
+        if row.shape[0] < 4:
+            self._opt = None
+            self._ocov = None
+            return self._opt
+
+        # get shape of the image
+        frame_height,frame_width = self._shape
+        
+        # only get unique coordinates
+        # this is required to avoid it looping back on itself
+        # data has to be positively increasing
+        if kwargs.get("sort_contour", True):
+            pts = []
+            for yy,xx in zip(row,col):
+                pts.append([xx,yy])
+            pts_arr = np.array(pts, np.int32)
+            pts_tup = [tuple(row) for row in pts_arr]
+            coords_uq = np.unique(pts_tup,axis=0)
+            coords_uq = np.array(coords_uq)
+            # sort by y-coordinate
+            coords_uq = coords_uq[coords_uq[:, 1].argsort()]
+            # change the scale so it starts from 0
+            coords_uq[:,0] = frame_width - coords_uq[:,0]
+            #coords_uq[:,1] -= coords_uq[:,1].min()
+            row = coords_uq[:,1]
+            col = coords_uq[:,0]
+
+        # find the row for the peak of the distribution
+        xmii = np.argmin(col)
+        # get the location of the mean
+        mean = row[xmii]
+        # the height of the curve
+        self.height = frame_width - col[xmii]
+        # calculate the standard deviation
+        std = np.nanstd(frame_width-col)
+        # offset, amp, mean, sigma
+        # fit curve to the data
+        # std dev has non zero lower limit to avoid div zero errors
+        #print("p0", [0, 300, mean, std])
+        #print("bounds", [(0,10,0,1),(3,500,frame_height,10)])
+        popt,pcov=curve_fit(PlasmaGaussian.gauss, row, col,
+                    #p0=[coords_uq[:,0].min(), 1e-6, mean, max(1e-6,std)], # initial guess based on data
+                    p0 = [0, 300, mean, std],
+                    bounds=[(0,10,0,1), # set bounds to stop it going too high
+                            (3,500,frame_height,13)], 
+                    method=kwargs.get("method","dogbox"), # method to use
+                    maxfev=kwargs.get("maxfev",1e3)) # number of iterations
+        self._opt = popt.tolist()
         return self._opt
 
 
-    def fit_model(self, frame: np.ndarray, **kwargs) -> list:  # noqa: ANN003
-        """Fit a symmetrical Gaussian to the data using curve_fit.
+    def fit_emodel(self, frame: np.ndarray, **kwargs) -> list:
+        """Fit an exponential modulated Gaussian to the data using curve_fit.
 
         Inputs:
             frame : Frame of temperature values to process
             **kwargs : See scipy.curve_fit
         """
-        from scipy.optimize import curve_fit
         # process frame to get coordintes representing sample of gaussian
         y,x = self._clip(frame)
         self._frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype("uint8")
